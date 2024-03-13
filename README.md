@@ -1,2 +1,2 @@
 # streamlit-amazon-food-review
-langchain chatgpt azure
+Streamlit version of Amazon Food Review Q&amp;A
