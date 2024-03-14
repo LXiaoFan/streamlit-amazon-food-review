@@ -8,6 +8,13 @@ from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain_openai import AzureChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import requests
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from langchain.tools import BaseTool, StructuredTool, tool
+from langchain_openai import AzureChatOpenAI
+from langchain.agents import Tool, AgentExecutor, create_openai_tools_agent
+from langchain import hub
+
 
 # convert the pdf to text chunks
 def process_text(pdf, chuck_size, chuck_overlap):
@@ -39,7 +46,58 @@ def get_embeddings(chunks, pdf_path):
     else:
         raise ValueError("Issue creating and saving vector store")
 
-    
+@tool
+def search_sap_help(query):
+    """
+    Search SAP help content based on the provided query.
+
+    Args:
+        query (str): The search query.
+
+    Returns:
+        dict or None: The search results if found, None otherwise.
+    """
+    search_url = "https://help.sap.com/http.svc/elasticsearch"
+    params = {
+        "area": "content",
+        "version": "",
+        "language": "en-US",
+        "state": "PRODUCTION",
+        "q": query,
+        "transtype": "standard,html,pdf,others",
+        "product": "",
+        "to": "5",
+        "advancedSearch": "0",
+        "excludeNotSearchable": "1"
+    }
+    response = requests.get(search_url, params=params)
+    if response.status_code == 200:
+        search_results = response.json()
+        return search_results
+    return None
+
+
+
+def function_call(input):
+    model = AzureChatOpenAI(model_name="gpt-35-turbo", temperature=0.5)
+
+    tools = [
+        Tool(
+            name = "search_sap_help",
+            func = search_sap_help.run,
+            description = "useful for search_sap_help information extraction"
+        )
+    ]
+
+    prompt = hub.pull("hwchase17/openai-tools-agent")
+    agent = create_openai_tools_agent(model, tools, prompt)
+    agent_executor = AgentExecutor(
+        agent=agent, tools=tools, verbose=False, handle_parsing_errors=True
+    )
+    result = agent_executor.invoke({"input": input})
+    output_value = result["output"]
+    return output_value
+
 @st.cache_resource
 def load_data(vector_store_dir: str = "data/amazon-food-reviews-faiss"):
     pdf_path = '/Users/i547603/githubRepo/streamlit-amazon-food-review/IRM Help.pdf'
@@ -63,19 +121,24 @@ def load_data(vector_store_dir: str = "data/amazon-food-reviews-faiss"):
     return AMAZON_REVIEW_BOT
 
 
-
 def chat(message, history):
-    print(f"[message]{message}")
-    print(f"[history]{history}")
+    # print(f"[message]{message}")
+    # print(f"[history]{history}")
     enable_chat = True
 
     AMAZON_REVIEW_BOT = load_data()
 
     ans = AMAZON_REVIEW_BOT.invoke({"query": message})
-    if ans["source_documents"] or enable_chat:
-        return ans["result"]
+    # print(ans["source_documents"])
+    if not ans["source_documents"] and enable_chat:
+        search_result = function_call(message)
+        # print(search_result) 
+        if search_result:
+            return search_result
+        else:
+            return "I don't know."
     else:
-        return "I don't know."
+        return ans["result"]
 
 if __name__ == "__main__":
     os.environ["OPENAI_API_TYPE"] = "azure"
