@@ -100,7 +100,7 @@ def function_call(input):
 
 @st.cache_resource
 def load_data(vector_store_dir: str = "data/amazon-food-reviews-faiss"):
-    pdf_path = '/Users/i547603/githubRepo/streamlit-amazon-food-review/IRM Help.pdf'
+    pdf_path = '/home/ubuntu/chatgpt/IRM Help.pdf'
     chuck_size = 500
     chuck_overlap = 100
 
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     os.environ["OPENAI_API_TYPE"] = "azure"
     os.environ["OPENAI_API_VERSION"] = "2023-05-15"
     os.environ["OPENAI_API_BASE"] = "https://pvg-azure-openai-uk-south.openai.azure.com/openai"
-    env_path = os.getenv("HOME") + "/Documents/src/openai/.env"
+    env_path = "/home/ubuntu/env"
     load_dotenv(dotenv_path=env_path, verbose=True) 
 
     st.title('IRM Help')
